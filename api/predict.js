@@ -7,7 +7,7 @@ let model;
 
 async function loadModel() {
   if (!model) {
-    model = await tf.loadLayersModel('file://model/model.json');
+    model = await tf.loadLayersModel('https://shimmering-babka-d65c69.netlify.app/model.json');
     console.log("✅ Modelo cargado");
   }
 }
