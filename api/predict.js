@@ -1,23 +1,28 @@
 const tf = require('@tensorflow/tfjs-node');
-const express = require('express');
-const app = express();
-app.use(express.json({ limit: '10mb' }));
 
-let model;
+const MODEL_URL = 'https://shimmering-babka-d65c69.netlify.app/model.json';
+let model = null;
 
 async function loadModel() {
   if (!model) {
-    model = await tf.loadLayersModel('https://shimmering-babka-d65c69.netlify.app/model.json');
-    console.log("✅ Modelo cargado");
+    model = await tf.loadLayersModel(MODEL_URL);
+    console.log("✅ Modelo cargado desde URL externa");
   }
 }
 
-app.post('/predict', async (req, res) => {
+exports.handler = async (event) => {
   try {
     await loadModel();
 
-    const base64 = req.body.image;
-    if (!base64) return res.status(400).json({ error: "Falta la imagen" });
+    const body = JSON.parse(event.body);
+    const base64 = body.image;
+
+    if (!base64) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Falta la imagen" })
+      };
+    }
 
     const buffer = Buffer.from(base64, 'base64');
     const imageTensor = tf.node.decodeImage(buffer)
@@ -27,14 +32,20 @@ app.post('/predict', async (req, res) => {
       .expandDims();
 
     const prediction = await model.predict(imageTensor).data();
-    res.json({
-      prediction: Array.from(prediction),
-      labels: ["Mascarilla Correcta", "Mascarilla Incorrecta", "Sin Mascarilla"]
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
-module.exports = app;
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        prediction: Array.from(prediction),
+        labels: ["Mascarilla Correcta", "Mascarilla Incorrecta", "Sin Mascarilla"]
+      })
+    };
+  } catch (error) {
+    console.error("❌ Error en predicción:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    };
+  }
+};
+
